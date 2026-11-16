@@ -1,54 +1,68 @@
-# Discord Config Manager
+# Config Manager — Versioned Python Backend Demo
 
-**Controlled JSON/JSONC changes through a Discord interaction layer**
+**Safe local settings changes · SQLite transactions · optimistic concurrency · audit history**
 
-![Python](https://img.shields.io/badge/Python-Backend-3776AB?logo=python&logoColor=white) ![Source](https://img.shields.io/badge/Production%20code-private-orange) ![Type](https://img.shields.io/badge/Type-Architecture%20showcase-334155)
+[![CI](https://github.com/Scumbagsss/discord-config-manager/actions/workflows/config-demo.yml/badge.svg)](https://github.com/Scumbagsss/discord-config-manager/actions/workflows/config-demo.yml)
+![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)
+![SQLite](https://img.shields.io/badge/SQLite-Transactional%20state-003B57?logo=sqlite&logoColor=white)
 
-> **Documentation-only portfolio case study.** The source under [`src/public_interface.py`](src/public_interface.py) is intentionally unimplemented and raises `NotImplementedError`. This is **not** a runnable bot, a deployment package or independently verified production evidence.
+> **Public runnable demo + private-source case study.** The new `config_demo.py` is an independent synthetic example using **only the Python standard library**. The commercial Discord configuration manager and its production configuration remain private; [`src/public_interface.py`](src/public_interface.py) is an intentionally unimplemented architectural sketch.
 
-## Why this module exists
+## Why this matters
 
-Operational settings that live in JSON/JSONC files are easy to change incorrectly. A staff interface can offer validated edits, backup-before-write behavior and clear permission boundaries without disclosing raw configuration to all moderators.
+Administrative config edits may be small individually, but changes must be **validated, authorized, consistent and traceable**. Two simultaneous reviewers must not silently overwrite one another. Invalid updates must not leave half-written settings.
 
-**Technology context:** Python, discord.py, JSON/JSONC, file operations. These technologies describe the private module's documented domain; public executable implementation is not provided.
+The demo models a small backend service with an explicit list of five **fictional, non-secret settings**.
 
-## Workflow at a glance
+## Try it locally
 
-1. Choose an authorized configuration source and setting
-2. Validate the staff identity and restrict sensitive fields
-3. Parse and validate the proposed value against its schema
-4. Create a recoverable backup before applying the change
-5. Write safely and report whether a restart or refresh is necessary
+Requires Python **3.11+**, no Discord token, third-party dependencies or external services.
 
-These stages summarize the public project description; the exact runtime and private integration details cannot be independently verified from the public skeleton.
+```bash
+python config_demo.py --db demo-config.sqlite3 list
+python config_demo.py --db demo-config.sqlite3 get support.max_open_tickets
+python config_demo.py --db demo-config.sqlite3 set support.max_open_tickets 15 --version 1
+python config_demo.py --db demo-config.sqlite3 history support.max_open_tickets
+python config_demo.py --db demo-config.sqlite3 restore support.max_open_tickets --version 2
+python -m unittest discover -s tests -v
+```
 
-## Engineering challenges
+## Backend concepts demonstrated
 
-| Topic | Why it matters | How it should be verified |
-|---|---|---|
-| Secret leakage | Config files may include tokens or webhooks | Redact values and deny sensitive paths |
-| Concurrent edits | Two staff changes can overwrite each other | Use version checks or atomic read-modify-write |
-| Corrupt writes | Partial changes can make a bot fail at startup | Use backup and atomic replacement |
-| Runtime drift | A saved value may not be loaded into a running service | Report restart/reload state explicitly |
-
-## Component boundary
+| Capability | Implementation |
+|---|---|
+| Validation | Whitelist of keys and strict type/range checks |
+| Persistence | File-backed SQLite with parameterized SQL |
+| Conflict prevention | Expected-version checks inside `BEGIN IMMEDIATE` |
+| Multiple updates | One transaction; all changes commit or none do |
+| Auditability | Records actor, key, old/new values, version and timestamp |
+| Recovery | Restore a previous value while retaining history |
+| Reliability | Idempotent no-op updates and fresh-instance persistence |
+| Tests | **36 synthetic unit tests**, Python 3.11–3.13 GitHub Actions matrix |
 
 ```mermaid
 flowchart LR
-    A["Authorized staff"] --> B["Config selector"] --> C["Validation / redaction"] --> D["Backup and write"] --> E["Reload status / audit"]
+  A[Local CLI / synthetic caller] --> B[Validate staff + setting]
+  B --> C[Check expected version]
+  C --> D[(SQLite transaction)]
+  D --> E[Current config]
+  D --> F[Audit history]
+  F --> G[Restore previous]
 ```
 
-This diagram is **conceptual**, not a snapshot of private production architecture. See the [design notes](docs/ARCHITECTURE.md) for boundaries, failure scenarios and test ideas.
+**The caller-provided `Actor(staff=True)` is not user authentication**. This is a local exercise rather than a publicly deployable admin service. No secrets or production bot settings are accepted.
 
-## Repository contents and status
+Read the [engineering walkthrough](docs/CONFIG_DEMO.md) for version conflicts, safe rollback, batch semantics and limitations.
 
-- [`src/public_interface.py`](src/public_interface.py) — non-runnable, documented public interface skeleton
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — engineering design notes (no operational secrets)
-- [`examples/config.example.jsonc`](examples/config.example.jsonc) — illustrative configuration shape, **not** a production configuration
-- [`NOTICE.md`](NOTICE.md) and [`SECURITY.md`](SECURITY.md) — publication/security boundary
+## Private commercial context
 
-**Portfolio role:** Private-source configuration-management case study; public code is only interface signatures. No public tests, executable deployment or usage metrics are claimed here. For verifiable code, inspect the [FastAPI backend demo](https://github.com/Scumbagsss/priority-access-bot), [ticket workflow](https://github.com/Scumbagsss/advanced-discord-ticket-bot) and [monitoring pipeline](https://github.com/Scumbagsss/dayz-server-monitor-bot).
+The private Discord configuration module is described as a staff interface for JSON/JSONC editing, backups and runtime configuration management. The public demo uses **SQLite instead of the proprietary production adapters**, and does not connect to Discord or change live JSON/JSONC files.
 
-**Related systems:** [discord-admin-control-panel](https://github.com/Scumbagsss/discord-admin-control-panel) · [BOT](https://github.com/Scumbagsss/BOT).
+- [`config_demo.py`](config_demo.py) — independent runnable Python backend / CLI
+- [`tests/test_config_demo.py`](tests/test_config_demo.py) — fictional tests
+- [`.github/workflows/config-demo.yml`](.github/workflows/config-demo.yml) — continuous validation
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — conceptual private-source design
+- [`src/public_interface.py`](src/public_interface.py) — **non-runnable**, private-system signature sketch
+- [`NOTICE.md`](NOTICE.md) — publication boundary
 
 **Contact:** Discord `scumbagsss` · Telegram [@dilarion](https://t.me/dilarion)

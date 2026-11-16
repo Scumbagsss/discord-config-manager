@@ -1,0 +1,36 @@
+name: Synthetic configuration backend
+
+on:
+  push:
+    paths:
+      - "config_demo.py"
+      - "tests/**"
+      - ".github/workflows/config-demo.yml"
+  pull_request:
+    paths:
+      - "config_demo.py"
+      - "tests/**"
+      - ".github/workflows/config-demo.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Compile
+        run: python -m py_compile config_demo.py
+      - name: Run synthetic unit and CLI tests
+        run: python -m unittest discover -s tests -v
+      - name: Run example
+        run: python config_demo.py --db /tmp/synthetic-config.sqlite3 list
